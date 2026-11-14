@@ -80,7 +80,7 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
 <div class="wrap">
   <header>
     <h1>Rasathane Minibüs Planı</h1>
-    <p class="sub">Durak çıkış saatlerini 15R, 15U ve 15S otobüslerinin hemen önüne düşecek şekilde yeniden kurar. Her minibüs bir öncekinden 6, 7 veya 8 dakika sonra kalkar; bu kural içinde en çok otobüsün önüne geçen saatler seçilir.</p>
+    <p class="sub">Durak çıkış saatlerini 15R, 15U ve 15S otobüslerinin hemen önüne düşecek şekilde yeniden kurar. 06:32'ye kadar eski tablo aynen kalır. Sonrasında her minibüs bir öncekinden 6, 7 veya 8 dakika sonra kalkar; bu kural içinde en çok otobüsün önüne geçen saatler seçilir.</p>
   </header>
 
   <section class="panel" aria-label="Ayarlar">
@@ -92,6 +92,11 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
           <button type="button" data-day="cmt" aria-pressed="false">Cumartesi</button>
           <button type="button" data-day="paz" aria-pressed="false">Pazar</button>
         </div>
+      </div>
+      <div class="field">
+        <label for="keepUntil">Bu saate kadar eski tabloya uy</label>
+        <input id="keepUntil" type="time" value="06:32">
+        <small>bu saate kadarki seferler değişmez, sonrası planlanır</small>
       </div>
       <div class="field">
         <label for="travel">Minibüs: duraktan 15U kavşağına (2,2 km)</label>
@@ -150,7 +155,7 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
       <li>Otobüs saatleri IETT sitesindeki planlı kalkışlardan alındı (15R: Rasathane Ortaokulu, 15U: Tufan, 15S: Sultan Murat Caddesi kalkışları).</li>
       <li>15R minibüsle aynı yerden çıkıyor. Önüne geçmek için minibüs, 15R'den hedef süre kadar önce kalkar.</li>
       <li>15U ana yola 2,2 km'de, 15S 2,4 km'de giriyor ve terminalden ana yola gelmeleri ayardaki süre kadar (çizimde 3 dk) sürüyor. Minibüs o noktadan otobüsten önce geçecek şekilde kalkar.</li>
-      <li>İlk sefer eski plandaki gibi 05:35'te kalkar, son sefer eski son seferden (19:53) en fazla bir aralık önce olur. Aradaki her sefer bir öncekinden izin verilen aralıklardan biri kadar (6, 7 veya 8 dk) sonra kalkar. Bu kurala uyan bütün planlar denenir ve en çok otobüsün önüne geçen, otobüs arkasında en az kalan plan seçilir. Sefer sayısı bu yüzden eski plandan biraz farklı olabilir.</li>
+      <li>Sabah 06:32'ye kadarki seferler (05:35, 05:55, 06:07, 06:16, 06:24, 06:32) eski tablodaki gibi kalır; bu saat sayfadan değiştirilebilir. Son sefer eski son seferden (19:53) en fazla bir aralık önce olur. Aradaki her sefer bir öncekinden izin verilen aralıklardan biri kadar (6, 7 veya 8 dk) sonra kalkar. Bu kurala uyan bütün planlar denenir ve en çok otobüsün önüne geçen, otobüs arkasında en az kalan plan seçilir. Sefer sayısı bu yüzden eski plandan biraz farklı olabilir.</li>
       <li>Trafik her gün farklıdır. Birkaç gün minibüsün kavşağa gerçekte kaç dakikada vardığını ölçüp yukarıdaki süreyi ona göre girerseniz plan daha isabetli olur.</li>
     </ul>
   </section>
@@ -189,11 +194,13 @@ function leadFor(S, e){
 // Best timetable where every gap between departures is one of the allowed values (e.g. 6, 7, 8 min).
 // Dynamic programming over each minute of the day: maximise buses covered, avoid running right behind a bus.
 function plan(p){
-  const first = ORIG[0], last = ORIG[ORIG.length-1];
+  const last = ORIG[ORIG.length-1];
+  const keep = ORIG.filter(t => t <= p.keepUntil);          // old timetable kept as-is up to this time
+  const first = keep.length ? keep[keep.length-1] : ORIG[0];
   const ev = busEvents(p);
   const gaps = []; for (let g = p.gapMin; g <= p.gapMax; g++) gaps.push(g);
   const info = {};
-  for (let t = first; t <= last; t++) {
+  for (let t = ORIG[0]; t <= last; t++) {
     let c = 0, pen = 0, behind = false; const items = [];
     for (const e of ev) {
       const l = e.pass - (t + e.tr);
@@ -218,7 +225,8 @@ function plan(p){
   const out = [];
   for (let t = end; t !== undefined; t = prev[t]) out.push({t, a: info[t].items.length ? {items: info[t].items} : null});
   out.reverse();
-  return {deps: out, events: ev};
+  const head = keep.slice(0, -1).map(t => ({t, a: info[t].items.length ? {items: info[t].items} : null}));
+  return {deps: head.concat(out), events: ev};
 }
 
 // Score a schedule against all buses of the day.
@@ -240,7 +248,8 @@ const state = {day: (()=>{ const g = new Date().getDay(); return g===0?"paz":g==
 const $ = id => document.getElementById(id);
 function params(){
   const lead = Math.max(1, +$("lead").value || 2);
-  return {day: state.day, travel: Math.max(1, +$("travel").value || 7), lead, leadMin: 1, leadMax: Math.max(lead+2, 4),
+  const ku = ($("keepUntil").value || "").match(/^(\d{1,2}):(\d{2})/);
+  return {keepUntil: ku ? (+ku[1])*60 + (+ku[2]) : 0, day: state.day, travel: Math.max(1, +$("travel").value || 7), lead, leadMin: 1, leadMax: Math.max(lead+2, 4),
     gapMin: Math.max(1, +$("gapMin").value || 6), gapMax: Math.max(+$("gapMin").value || 6, +$("gapMax").value || 8), bend: Math.max(0, +$("bend").value || 0), incMarked: $("incMarked").checked};
 }
 function render(){
@@ -296,7 +305,7 @@ function render(){
     evs.map(e => `<tr><td><span class="badge b${e.line}">${e.line}</span>${e.marked?' <small class="sub">-1</small>':''}</td><td class="mono">${e.raw}</td><td class="mono">${fmt(e.pass)} <small class="sub">(${e.line==='15R'?'0':DIST[e.line].toString().replace('.',',')} km)</small></td>${cell(ORIG,e)}${cell(NEW,e)}</tr>`).join("") + "</tbody>";
 }
 document.querySelectorAll("#daySeg button").forEach(b => b.addEventListener("click", () => { state.day = b.dataset.day; render(); }));
-["travel","lead","gapMin","gapMax","bend","incMarked"].forEach(id => $(id).addEventListener("input", render));
+["keepUntil","travel","lead","gapMin","gapMax","bend","incMarked"].forEach(id => $(id).addEventListener("input", render));
 $("copyBtn").addEventListener("click", () => {
   const box = $("copyBox");
   navigator.clipboard.writeText(box.value).then(() => { $("copyBtn").textContent = "Kopyalandı"; setTimeout(()=>$("copyBtn").textContent="Saatleri kopyala",1500); })
