@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Rasathane minibüs durak çıkışlarını 15R, 15U ve 15S otobüslerinin önüne düşecek şekilde planlayan hesaplayıcı.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Rasathane Minibüs Planı</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: one working column; controls bar, summary strip, timetable grid (same 14-row shape as the stop's board), bus-by-bus list. */
+:root{
+  --bg:#f6f5f3; --surface:#ffffff; --ink:#1d1c1a; --muted:#6b6660; --line:#e2ded8;
+  --accent:#b3121b; --accent-soft:#f9e3e3; --good:#1d7a46; --good-soft:#e1f2e8; --warn:#9a5b00; --warn-soft:#fbefd9;
+  --r:#b3121b; --u:#1f5fa8; --s:#6a3fa0;
+  --display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141312; --surface:#1d1c1a; --ink:#efece8; --muted:#a29c94; --line:#34312d;
+  --accent:#ef5a5f; --accent-soft:#3a1d1e; --good:#5cc98a; --good-soft:#173324; --warn:#e9a94a; --warn-soft:#3a2c14;
+  --r:#ef5a5f; --u:#6aa5ec; --s:#b48ce8; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141312; --surface:#1d1c1a; --ink:#efece8; --muted:#a29c94; --line:#34312d;
+  --accent:#ef5a5f; --accent-soft:#3a1d1e; --good:#5cc98a; --good-soft:#173324; --warn:#e9a94a; --warn-soft:#3a2c14;
+  --r:#ef5a5f; --u:#6aa5ec; --s:#b48ce8; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+header{display:flex;flex-direction:column;gap:4px;border-bottom:4px solid var(--accent);padding-bottom:12px}
+h1{font-family:var(--display);font-size:2.4rem;letter-spacing:.06em;text-transform:uppercase;margin:0;line-height:1.05;text-wrap:balance}
+h2{font-family:var(--display);font-size:1.45rem;letter-spacing:.05em;text-transform:uppercase;margin:0}
+.sub{color:var(--muted);max-width:70ch;margin:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label,.lbl{font-size:.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.field small{color:var(--muted);font-size:.78rem}
+input[type=number],select{font:inherit;font-family:var(--mono);padding:7px 9px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);width:100%;box-sizing:border-box}
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{flex:1;font:inherit;font-weight:600;padding:7px 4px;border:0;background:var(--bg);color:var(--ink);cursor:pointer}
+.seg button[aria-pressed=true]{background:var(--accent);color:#fff}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.check{display:flex;gap:8px;align-items:center;font-size:.9rem}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .big{font-family:var(--display);font-size:2.2rem;line-height:1;font-variant-numeric:tabular-nums}
+.stat .big .was{font-size:1.1rem;color:var(--muted);margin-left:6px}
+.up{color:var(--good)} .down{color:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:.82rem;color:var(--muted);align-items:center}
+.badge{display:inline-block;font-family:var(--mono);font-size:.68rem;font-weight:700;padding:1px 5px;border-radius:3px;color:#fff;line-height:1.4}
+.b15R{background:var(--r)} .b15U{background:var(--u)} .b15S{background:var(--s)}
+.scroll{overflow-x:auto}
+table.board{border-collapse:separate;border-spacing:3px;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.board th{font-size:.72rem;color:var(--muted);font-weight:500;padding:0 4px}
+.board td{background:var(--bg);border:1px solid var(--line);border-radius:3px;padding:4px 6px;min-width:64px;vertical-align:top}
+.board td .t{font-weight:700;font-size:.98rem;display:block}
+.board td .d{font-size:.68rem;color:var(--muted);display:flex;gap:3px;flex-wrap:wrap;align-items:center;min-height:1.1em}
+.board td.anchor{background:var(--good-soft);border-color:var(--good)}
+.board td.behind{background:var(--warn-soft);border-color:var(--warn)}
+.board td.empty{background:transparent;border-color:transparent}
+.row-n{font-size:.72rem;color:var(--muted);text-align:right}
+table.list{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-numeric:tabular-nums}
+.list th{text-align:left;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:600;border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap}
+.list td{border-bottom:1px solid var(--line);padding:6px 8px;white-space:nowrap}
+.list td.mono{font-family:var(--mono)}
+.pill{display:inline-block;font-size:.72rem;font-weight:600;padding:1px 7px;border-radius:10px}
+.pill.ok{background:var(--good-soft);color:var(--good)} .pill.no{background:var(--accent-soft);color:var(--accent)} .pill.mid{background:var(--warn-soft);color:var(--warn)}
+.head-row{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.btn{font:inherit;font-weight:600;padding:7px 12px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:4px;cursor:pointer}
+.btn:hover{background:var(--accent-soft)}
+.notes{color:var(--muted);font-size:.86rem;max-width:80ch;margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:.8rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;min-height:80px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Rasathane Minibüs Planı</h1>
+    <p class="sub">Durak çıkış saatlerini 15R, 15U ve 15S otobüslerinin hemen önüne düşecek şekilde yeniden kurar. Her minibüs bir öncekinden 6, 7 veya 8 dakika sonra kalkar; bu kural içinde en çok otobüsün önüne geçen saatler seçilir.</p>
+  </header>
+
+  <section class="panel" aria-label="Ayarlar">
+    <div class="controls">
+      <div class="field">
+        <span class="lbl">Gün</span>
+        <div class="seg" id="daySeg">
+          <button type="button" data-day="is" aria-pressed="true">Hafta içi</button>
+          <button type="button" data-day="cmt" aria-pressed="false">Cumartesi</button>
+          <button type="button" data-day="paz" aria-pressed="false">Pazar</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="travel">Minibüs: duraktan 15U kavşağına (2,2 km)</label>
+        <input id="travel" type="number" min="3" max="20" step="0.5" value="7">
+        <small>dakika · 15S kavşağı (2,4 km) buna göre hesaplanır</small>
+      </div>
+      <div class="field">
+        <label for="lead">Otobüsün kaç dk önünde olalım</label>
+        <input id="lead" type="number" min="1" max="8" step="1" value="2">
+        <small>kabul aralığı: 1 – <span id="leadMaxTxt">5</span> dk önde</small>
+      </div>
+      <div class="field">
+        <span class="lbl">İki minibüs arası (dk)</span>
+        <div style="display:flex;gap:8px;align-items:center"><input id="gapMin" type="number" min="3" max="15" step="1" value="6" aria-label="En az aralık"><span>–</span><input id="gapMax" type="number" min="3" max="20" step="1" value="8" aria-label="En çok aralık"></div>
+        <small>her sefer bir öncekinden bu kadar sonra kalkar (şu an 6, 7 veya 8 dk)</small>
+      </div>
+      <div class="field">
+        <label for="bend">Otobüs: terminalden ana yola</label>
+        <input id="bend" type="number" min="0" max="15" step="1" value="3">
+        <small>dakika (15U ve 15S için, çizimdeki 3 dk)</small>
+      </div>
+      <div class="field" style="justify-content:flex-end">
+        <label class="check" for="incMarked"><input id="incMarked" type="checkbox" checked> “-1” işaretli seferleri de say</label>
+        <small>IETT'de -1 işaretli seferler farklı güzergahtan gidebilir.</small>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="Özet">
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section class="panel" aria-label="Yeni çıkış saatleri">
+    <div class="head-row">
+      <h2>Yeni durak çıkışları</h2>
+      <button class="btn" type="button" id="copyBtn">Saatleri kopyala</button>
+    </div>
+    <div class="legend">
+      <span><span class="badge b15U">15U</span> bu minibüs o otobüsün önünde gider</span>
+      <span>Küçük sayı: önceki minibüsten kaç dk sonra kalktığı</span>
+      <span style="display:inline-flex;gap:6px;align-items:center"><span style="width:12px;height:12px;border:1px solid var(--warn);background:var(--warn-soft);display:inline-block;border-radius:2px"></span>otobüsün hemen arkasında kalıyor</span>
+    </div>
+    <div class="scroll"><table class="board" id="board"></table></div>
+    <textarea id="copyBox" hidden readonly aria-label="Kopyalanacak saatler"></textarea>
+  </section>
+
+  <section class="panel" aria-label="Otobüs otobüs karşılaştırma">
+    <h2>Otobüs otobüs karşılaştırma</h2>
+    <p class="sub">“Önde” = minibüs, otobüsün ana yola girdiği noktadan 1 – <span id="leadMaxTxt2">5</span> dk önce geçiyor.</p>
+    <div class="scroll"><table class="list" id="list"></table></div>
+  </section>
+
+  <section class="panel" aria-label="Varsayımlar">
+    <h2>Hesap nasıl yapıldı</h2>
+    <ul class="notes">
+      <li>Otobüs saatleri IETT sitesindeki planlı kalkışlardan alındı (15R: Rasathane Ortaokulu, 15U: Tufan, 15S: Sultan Murat Caddesi kalkışları).</li>
+      <li>15R minibüsle aynı yerden çıkıyor. Önüne geçmek için minibüs, 15R'den hedef süre kadar önce kalkar.</li>
+      <li>15U ana yola 2,2 km'de, 15S 2,4 km'de giriyor ve terminalden ana yola gelmeleri ayardaki süre kadar (çizimde 3 dk) sürüyor. Minibüs o noktadan otobüsten önce geçecek şekilde kalkar.</li>
+      <li>İlk sefer eski plandaki gibi 05:35'te kalkar, son sefer eski son seferden (19:53) en fazla bir aralık önce olur. Aradaki her sefer bir öncekinden izin verilen aralıklardan biri kadar (6, 7 veya 8 dk) sonra kalkar. Bu kurala uyan bütün planlar denenir ve en çok otobüsün önüne geçen, otobüs arkasında en az kalan plan seçilir. Sefer sayısı bu yüzden eski plandan biraz farklı olabilir.</li>
+      <li>Trafik her gün farklıdır. Birkaç gün minibüsün kavşağa gerçekte kaç dakikada vardığını ölçüp yukarıdaki süreyi ona göre girerseniz plan daha isabetli olur.</li>
+    </ul>
+  </section>
+</div>
+
+<script id="logic">
+const BUS = {"15R": {"is": ["05:45", "06:10", "06:15 -1", "06:35", "07:00", "07:20 -1", "07:25", "08:00", "08:40 -1", "08:45", "09:35", "10:15", "11:00", "11:40", "12:25", "13:10", "13:50", "14:40", "15:30", "16:00", "16:35", "17:10", "17:45", "18:30", "19:00", "19:50", "20:40", "21:20"], "cmt": ["05:45", "06:20", "06:30 -1", "06:55", "07:20 -1", "07:25", "08:15", "08:30 -1", "08:55", "09:45", "10:40", "11:25", "12:20", "13:05", "14:00", "14:50", "15:35", "16:25", "17:20", "18:00", "19:00", "19:50", "20:35"], "paz": ["07:30", "08:30", "09:50", "11:05", "11:50", "12:15", "12:45", "13:15", "13:45", "14:15", "14:45", "15:15", "15:50", "16:25", "17:00", "17:40", "19:00", "20:50"]}, "15U": {"is": ["06:30", "06:45", "07:00", "07:15", "07:30 -1", "07:50", "08:20", "09:00", "09:45 -1", "10:30", "11:15", "12:00", "12:45", "13:30", "14:15", "15:00", "15:45", "16:20", "16:55", "17:30", "18:05", "18:45", "19:30", "20:15", "21:00"], "cmt": ["06:30", "07:10", "07:25 -1", "07:40", "08:15", "08:50", "09:25 -1", "10:00", "11:15", "12:50", "14:25", "15:30", "16:05", "16:40", "17:10", "17:40", "18:15", "19:30", "21:05"], "paz": ["11:40", "13:20", "15:00", "16:50"]}, "15S": {"is": ["05:40", "06:00", "06:20", "06:40", "07:00", "07:20", "07:50", "08:20", "08:50", "09:20", "09:50", "10:20", "10:50", "11:20", "11:50", "12:20", "12:50", "13:20", "14:00", "14:40", "15:25", "16:00", "16:35", "17:10", "17:45", "18:20", "18:55", "19:30", "20:00", "20:20", "20:40", "21:00", "21:20", "22:00"], "cmt": ["05:40", "06:05", "06:30", "06:50", "07:10", "07:30", "07:55", "08:20", "08:45", "09:10", "09:35", "10:00", "10:30", "11:00", "11:30", "12:00", "12:35", "13:10", "13:45", "14:20", "15:00", "15:40", "16:10", "16:40", "17:10", "17:40", "18:10", "18:40", "19:10", "19:40", "20:10", "20:40", "21:10"], "paz": ["05:40", "06:20", "07:00", "07:40", "08:20", "09:00", "09:40", "10:20", "11:00", "11:40", "12:20", "13:00", "13:45", "14:30", "16:00", "16:45", "17:30", "18:15", "19:00", "19:45", "20:30", "21:10"]}};
+const ORIG_TXT = "05:35 05:55 06:07 06:16 06:24 06:32 06:39 06:45 06:51 06:58 07:04 07:10 07:16 07:22 07:28 07:34 07:40 07:46 07:52 07:58 08:04 08:10 08:16 08:22 08:28 08:34 08:40 08:46 08:52 08:58 09:04 09:10 09:16 09:22 09:28 09:34 09:40 09:46 09:52 09:58 10:04 10:10 10:16 10:22 10:28 10:34 10:40 10:46 10:52 10:58 11:04 11:10 11:16 11:22 11:28 11:34 11:40 11:46 11:52 11:58 12:04 12:10 12:16 12:22 12:28 12:34 12:40 12:46 12:53 13:00 13:07 13:14 13:21 13:28 13:35 13:42 13:49 13:56 14:03 14:10 14:17 14:24 14:31 14:38 14:45 14:52 14:59 15:06 15:13 15:20 15:27 15:34 15:41 15:48 15:55 16:02 16:09 16:16 16:23 16:30 16:37 16:44 16:51 16:58 17:05 17:12 17:19 17:26 17:33 17:40 17:47 17:54 18:01 18:08 18:15 18:22 18:29 18:36 18:43 18:50 18:57 19:04 19:11 19:18 19:25 19:32 19:39 19:46 19:53";
+const DIST = {"15R":0, "15U":2.2, "15S":2.4};
+const toMin = s => { const [h,m] = s.slice(0,5).split(":").map(Number); return h*60+m; };
+const fmt = m => { m = Math.round(m); return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); };
+const ORIG = ORIG_TXT.split(" ").map(toMin);
+
+// Bus events: when each bus passes the point where it joins the minibus road.
+function busEvents(p){
+  const ev = [];
+  for (const line of ["15R","15U","15S"]) for (const raw of BUS[line][p.day]) {
+    const marked = raw.includes("-1");
+    if (marked && !p.incMarked) continue;
+    const dep = toMin(raw);
+    const pass = dep + (line === "15R" ? 0 : p.bend);       // time bus is at the join point
+    const tr = p.travel * DIST[line] / 2.2;                 // minibus minutes from stop to that point
+    ev.push({line, raw: raw.slice(0,5), marked, dep, pass, tr,
+      lo: pass - tr - p.leadMax, hi: pass - tr - p.leadMin, pref: pass - tr - p.lead});
+  }
+  return ev.sort((a,b) => a.hi - b.hi);
+}
+
+// Lead of the minibus that is ahead of bus e (smallest positive margin) in schedule S.
+function leadFor(S, e){
+  let best = null;
+  for (const d of S) { const l = e.pass - (d + e.tr); if (l >= 0 && (best === null || l < best.l)) best = {d, l}; }
+  return best;
+}
+
+// Best timetable where every gap between departures is one of the allowed values (e.g. 6, 7, 8 min).
+// Dynamic programming over each minute of the day: maximise buses covered, avoid running right behind a bus.
+function plan(p){
+  const first = ORIG[0], last = ORIG[ORIG.length-1];
+  const ev = busEvents(p);
+  const gaps = []; for (let g = p.gapMin; g <= p.gapMax; g++) gaps.push(g);
+  const info = {};
+  for (let t = first; t <= last; t++) {
+    let c = 0, pen = 0, behind = false; const items = [];
+    for (const e of ev) {
+      const l = e.pass - (t + e.tr);
+      if (l >= p.leadMin - 0.5 && l <= p.leadMax + 0.5) { c++; pen += Math.abs(l - p.lead); items.push(e); }
+      else if (l < 0 && l >= -3) behind = true;
+    }
+    info[t] = {s: 100*c - pen - (behind ? 30 : 0), items};
+  }
+  const best = {}, prev = {};
+  best[first] = info[first].s;
+  for (let t = first + 1; t <= last; t++) {
+    for (const g of gaps) {
+      const f = t - g;
+      if (best[f] === undefined) continue;
+      const v = best[f] + info[t].s;
+      if (best[t] === undefined || v > best[t]) { best[t] = v; prev[t] = f; }
+    }
+  }
+  // Last departure must fall within the final gap before the old last departure.
+  let end = null;
+  for (let t = last; t >= last - p.gapMax + 1; t--) if (best[t] !== undefined && (end === null || best[t] > best[end])) end = t;
+  const out = [];
+  for (let t = end; t !== undefined; t = prev[t]) out.push({t, a: info[t].items.length ? {items: info[t].items} : null});
+  out.reverse();
+  return {deps: out, events: ev};
+}
+
+// Score a schedule against all buses of the day.
+function score(S, events, p){
+  let covered = 0, total = 0;
+  const behind = new Set();
+  for (const e of events) {
+    total++;
+    const b = leadFor(S, e);
+    if (b && b.l >= p.leadMin - 0.5 && b.l <= p.leadMax + 0.5) covered++;
+    for (const d of S) { const lag = (d + e.tr) - e.pass; if (lag > 0 && lag <= 3) behind.add(d); }
+  }
+  return {covered, total, behind};
+}
+</script>
+
+<script>
+const state = {day: (()=>{ const g = new Date().getDay(); return g===0?"paz":g===6?"cmt":"is"; })()};
+const $ = id => document.getElementById(id);
+function params(){
+  const lead = Math.max(1, +$("lead").value || 2);
+  return {day: state.day, travel: Math.max(1, +$("travel").value || 7), lead, leadMin: 1, leadMax: Math.max(lead+2, 4),
+    gapMin: Math.max(1, +$("gapMin").value || 6), gapMax: Math.max(+$("gapMin").value || 6, +$("gapMax").value || 8), bend: Math.max(0, +$("bend").value || 0), incMarked: $("incMarked").checked};
+}
+function render(){
+  const p = params();
+  $("leadMaxTxt").textContent = p.leadMax; $("leadMaxTxt2").textContent = p.leadMax;
+  document.querySelectorAll("#daySeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.day === state.day));
+  const res = plan(p);
+  const NEW = res.deps.map(d=>d.t);
+  const sOld = score(ORIG, res.events, p), sNew = score(NEW, res.events, p);
+  const pct = s => s.total ? Math.round(100*s.covered/s.total) : 0;
+  const diff = sNew.covered - sOld.covered;
+  $("stats").innerHTML = `
+    <div class="stat"><span class="lbl">Önüne geçilen otobüs</span>
+      <span class="big">${sNew.covered}/${sNew.total}<span class="was">eski plan: ${sOld.covered}</span></span>
+      <span class="${diff>=0?'up':'down'}">${diff>=0?'+':''}${diff} otobüs · %${pct(sNew)} (eski %${pct(sOld)})</span></div>
+    <div class="stat"><span class="lbl">Otobüsün hemen arkasında kalan sefer</span>
+      <span class="big">${sNew.behind.size}<span class="was">eski plan: ${sOld.behind.size}</span></span>
+      <span class="sub">otobüsten 0–3 dk sonra aynı noktadan geçen minibüs</span></div>
+    <div class="stat"><span class="lbl">Sefer sayısı</span>
+      <span class="big">${NEW.length}<span class="was">eski: ${ORIG.length}</span></span>
+      <span class="sub">${fmt(NEW[0])} – ${fmt(NEW[NEW.length-1])} arası</span></div>`;
+
+  // Board: 14 rows, column-major like the stop's printed table.
+  const rows = 14, cols = Math.ceil(NEW.length/rows);
+  const coverMap = new Map();
+  for (const e of res.events) { const b = leadFor(NEW, e); if (b && b.l >= p.leadMin-0.5 && b.l <= p.leadMax+0.5) { if(!coverMap.has(b.d)) coverMap.set(b.d, []); coverMap.get(b.d).push(e); } }
+  let html = "<thead><tr><th></th>" + Array.from({length:cols},(_,c)=>`<th>${c+1}. sütun</th>`).join("") + "</tr></thead><tbody>";
+  for (let r = 0; r < rows; r++) {
+    html += `<tr><td class="row-n empty">${r+1}</td>`;
+    for (let c = 0; c < cols; c++) {
+      const i = c*rows + r;
+      if (i >= NEW.length) { html += '<td class="empty"></td>'; continue; }
+      const t = NEW[i], delta = i ? t - NEW[i-1] : 0, cov = coverMap.get(t) || [];
+      const cls = cov.length ? "anchor" : (sNew.behind.has(t) ? "behind" : "");
+      const badges = [...new Set(cov.map(e=>e.line))].map(l=>`<span class="badge b${l}">${l}</span>`).join("");
+      html += `<td class="${cls}" title="${i ? 'Önceki seferden ' + delta + ' dk sonra' : 'İlk sefer'}"><span class="t">${fmt(t)}</span><span class="d">${badges}${i ? delta + ' dk' : 'ilk'}</span></td>`;
+    }
+    html += "</tr>";
+  }
+  $("board").innerHTML = html + "</tbody>";
+  $("copyBox").value = Array.from({length:rows},(_,r)=>Array.from({length:cols},(_,c)=>NEW[c*rows+r]!==undefined?fmt(NEW[c*rows+r]):"").join("\t")).join("\n");
+
+  // Bus list
+  const evs = res.events.slice().sort((a,b)=>a.pass-b.pass);
+  const cell = (S, e) => {
+    const b = leadFor(S, e);
+    if (!b) return `<td class="mono">—</td><td><span class="pill no">yok</span></td>`;
+    const ok = b.l >= p.leadMin-0.5 && b.l <= p.leadMax+0.5;
+    const pill = ok ? `<span class="pill ok">${Math.round(b.l)} dk önde</span>` : `<span class="pill ${b.l<p.leadMin?'mid':'no'}">${b.l<p.leadMin? 'çok yakın' : Math.round(b.l)+' dk önde'}</span>`;
+    return `<td class="mono">${fmt(b.d)}</td><td>${pill}</td>`;
+  };
+  $("list").innerHTML = `<thead><tr><th>Hat</th><th>Otobüs kalkış</th><th>Ana yola giriş</th><th>Eski: minibüs</th><th>Eski durum</th><th>Yeni: minibüs</th><th>Yeni durum</th></tr></thead><tbody>` +
+    evs.map(e => `<tr><td><span class="badge b${e.line}">${e.line}</span>${e.marked?' <small class="sub">-1</small>':''}</td><td class="mono">${e.raw}</td><td class="mono">${fmt(e.pass)} <small class="sub">(${e.line==='15R'?'0':DIST[e.line].toString().replace('.',',')} km)</small></td>${cell(ORIG,e)}${cell(NEW,e)}</tr>`).join("") + "</tbody>";
+}
+document.querySelectorAll("#daySeg button").forEach(b => b.addEventListener("click", () => { state.day = b.dataset.day; render(); }));
+["travel","lead","gapMin","gapMax","bend","incMarked"].forEach(id => $(id).addEventListener("input", render));
+$("copyBtn").addEventListener("click", () => {
+  const box = $("copyBox");
+  navigator.clipboard.writeText(box.value).then(() => { $("copyBtn").textContent = "Kopyalandı"; setTimeout(()=>$("copyBtn").textContent="Saatleri kopyala",1500); })
+    .catch(() => { box.hidden = false; box.select(); });
+});
+render();
+</script>
+</body>
+</html>
