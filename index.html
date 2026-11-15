@@ -118,10 +118,6 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
         <input id="bend" type="number" min="0" max="15" step="1" value="3">
         <small>dakika (15U ve 15S için, çizimdeki 3 dk)</small>
       </div>
-      <div class="field" style="justify-content:flex-end">
-        <label class="check" for="incMarked"><input id="incMarked" type="checkbox" checked> 15U “-1” işaretli seferleri de say</label>
-        <small>15R'nin -1 seferleri hesaba hiç katılmaz.</small>
-      </div>
     </div>
   </section>
 
@@ -153,7 +149,7 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
     <h2>Hesap nasıl yapıldı</h2>
     <ul class="notes">
       <li>Otobüs saatleri IETT sitesindeki planlı kalkışlardan alındı (15R: Rasathane Ortaokulu, 15U: Tufan, 15S: Sultan Murat Caddesi kalkışları).</li>
-      <li>15R'nin “-1” işaretli seferleri bu yoldan geçmediği için hesaba katılmadı. 15R minibüsle aynı yerden çıkıyor. Önüne geçmek için minibüs, 15R'den hedef süre kadar önce kalkar.</li>
+      <li>15R ve 15U'nun “-1” işaretli seferleri bu yoldan geçmediği için hesaba katılmadı. 15R minibüsle aynı yerden çıkıyor. Önüne geçmek için minibüs, 15R'den hedef süre kadar önce kalkar.</li>
       <li>15U ana yola 2,2 km'de, 15S 2,4 km'de giriyor ve terminalden ana yola gelmeleri ayardaki süre kadar (çizimde 3 dk) sürüyor. Minibüs o noktadan otobüsten önce geçecek şekilde kalkar.</li>
       <li>Sabah 06:32'ye kadarki seferler (05:35, 05:55, 06:07, 06:16, 06:24, 06:32) eski tablodaki gibi kalır; bu saat sayfadan değiştirilebilir. Son sefer eski son seferden (19:53) en fazla bir aralık önce olur. Aradaki her sefer bir öncekinden izin verilen aralıklardan biri kadar (6, 7 veya 8 dk) sonra kalkar. Bu kurala uyan bütün planlar denenir ve en çok otobüsün önüne geçen, otobüs arkasında en az kalan plan seçilir. Sefer sayısı bu yüzden eski plandan biraz farklı olabilir.</li>
       <li>Trafik her gün farklıdır. Birkaç gün minibüsün kavşağa gerçekte kaç dakikada vardığını ölçüp yukarıdaki süreyi ona göre girerseniz plan daha isabetli olur.</li>
@@ -162,7 +158,7 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
 </div>
 
 <script id="logic">
-const BUS = {"15R": {"is": ["05:45", "06:10", "06:35", "07:00", "07:25", "08:00", "08:45", "09:35", "10:15", "11:00", "11:40", "12:25", "13:10", "13:50", "14:40", "15:30", "16:00", "16:35", "17:10", "17:45", "18:30", "19:00", "19:50", "20:40", "21:20"], "cmt": ["05:45", "06:20", "06:55", "07:25", "08:15", "08:55", "09:45", "10:40", "11:25", "12:20", "13:05", "14:00", "14:50", "15:35", "16:25", "17:20", "18:00", "19:00", "19:50", "20:35"], "paz": ["07:30", "08:30", "09:50", "11:05", "11:50", "12:15", "12:45", "13:15", "13:45", "14:15", "14:45", "15:15", "15:50", "16:25", "17:00", "17:40", "19:00", "20:50"]}, "15U": {"is": ["06:30", "06:45", "07:00", "07:15", "07:30 -1", "07:50", "08:20", "09:00", "09:45 -1", "10:30", "11:15", "12:00", "12:45", "13:30", "14:15", "15:00", "15:45", "16:20", "16:55", "17:30", "18:05", "18:45", "19:30", "20:15", "21:00"], "cmt": ["06:30", "07:10", "07:25 -1", "07:40", "08:15", "08:50", "09:25 -1", "10:00", "11:15", "12:50", "14:25", "15:30", "16:05", "16:40", "17:10", "17:40", "18:15", "19:30", "21:05"], "paz": ["11:40", "13:20", "15:00", "16:50"]}, "15S": {"is": ["05:40", "06:00", "06:20", "06:40", "07:00", "07:20", "07:50", "08:20", "08:50", "09:20", "09:50", "10:20", "10:50", "11:20", "11:50", "12:20", "12:50", "13:20", "14:00", "14:40", "15:25", "16:00", "16:35", "17:10", "17:45", "18:20", "18:55", "19:30", "20:00", "20:20", "20:40", "21:00", "21:20", "22:00"], "cmt": ["05:40", "06:05", "06:30", "06:50", "07:10", "07:30", "07:55", "08:20", "08:45", "09:10", "09:35", "10:00", "10:30", "11:00", "11:30", "12:00", "12:35", "13:10", "13:45", "14:20", "15:00", "15:40", "16:10", "16:40", "17:10", "17:40", "18:10", "18:40", "19:10", "19:40", "20:10", "20:40", "21:10"], "paz": ["05:40", "06:20", "07:00", "07:40", "08:20", "09:00", "09:40", "10:20", "11:00", "11:40", "12:20", "13:00", "13:45", "14:30", "16:00", "16:45", "17:30", "18:15", "19:00", "19:45", "20:30", "21:10"]}};
+const BUS = {"15R": {"is": ["05:45", "06:10", "06:35", "07:00", "07:25", "08:00", "08:45", "09:35", "10:15", "11:00", "11:40", "12:25", "13:10", "13:50", "14:40", "15:30", "16:00", "16:35", "17:10", "17:45", "18:30", "19:00", "19:50", "20:40", "21:20"], "cmt": ["05:45", "06:20", "06:55", "07:25", "08:15", "08:55", "09:45", "10:40", "11:25", "12:20", "13:05", "14:00", "14:50", "15:35", "16:25", "17:20", "18:00", "19:00", "19:50", "20:35"], "paz": ["07:30", "08:30", "09:50", "11:05", "11:50", "12:15", "12:45", "13:15", "13:45", "14:15", "14:45", "15:15", "15:50", "16:25", "17:00", "17:40", "19:00", "20:50"]}, "15U": {"is": ["06:30", "06:45", "07:00", "07:15", "07:50", "08:20", "09:00", "10:30", "11:15", "12:00", "12:45", "13:30", "14:15", "15:00", "15:45", "16:20", "16:55", "17:30", "18:05", "18:45", "19:30", "20:15", "21:00"], "cmt": ["06:30", "07:10", "07:40", "08:15", "08:50", "10:00", "11:15", "12:50", "14:25", "15:30", "16:05", "16:40", "17:10", "17:40", "18:15", "19:30", "21:05"], "paz": ["11:40", "13:20", "15:00", "16:50"]}, "15S": {"is": ["05:40", "06:00", "06:20", "06:40", "07:00", "07:20", "07:50", "08:20", "08:50", "09:20", "09:50", "10:20", "10:50", "11:20", "11:50", "12:20", "12:50", "13:20", "14:00", "14:40", "15:25", "16:00", "16:35", "17:10", "17:45", "18:20", "18:55", "19:30", "20:00", "20:20", "20:40", "21:00", "21:20", "22:00"], "cmt": ["05:40", "06:05", "06:30", "06:50", "07:10", "07:30", "07:55", "08:20", "08:45", "09:10", "09:35", "10:00", "10:30", "11:00", "11:30", "12:00", "12:35", "13:10", "13:45", "14:20", "15:00", "15:40", "16:10", "16:40", "17:10", "17:40", "18:10", "18:40", "19:10", "19:40", "20:10", "20:40", "21:10"], "paz": ["05:40", "06:20", "07:00", "07:40", "08:20", "09:00", "09:40", "10:20", "11:00", "11:40", "12:20", "13:00", "13:45", "14:30", "16:00", "16:45", "17:30", "18:15", "19:00", "19:45", "20:30", "21:10"]}};
 const ORIG_TXT = "05:35 05:55 06:07 06:16 06:24 06:32 06:39 06:45 06:51 06:58 07:04 07:10 07:16 07:22 07:28 07:34 07:40 07:46 07:52 07:58 08:04 08:10 08:16 08:22 08:28 08:34 08:40 08:46 08:52 08:58 09:04 09:10 09:16 09:22 09:28 09:34 09:40 09:46 09:52 09:58 10:04 10:10 10:16 10:22 10:28 10:34 10:40 10:46 10:52 10:58 11:04 11:10 11:16 11:22 11:28 11:34 11:40 11:46 11:52 11:58 12:04 12:10 12:16 12:22 12:28 12:34 12:40 12:46 12:53 13:00 13:07 13:14 13:21 13:28 13:35 13:42 13:49 13:56 14:03 14:10 14:17 14:24 14:31 14:38 14:45 14:52 14:59 15:06 15:13 15:20 15:27 15:34 15:41 15:48 15:55 16:02 16:09 16:16 16:23 16:30 16:37 16:44 16:51 16:58 17:05 17:12 17:19 17:26 17:33 17:40 17:47 17:54 18:01 18:08 18:15 18:22 18:29 18:36 18:43 18:50 18:57 19:04 19:11 19:18 19:25 19:32 19:39 19:46 19:53";
 const DIST = {"15R":0, "15U":2.2, "15S":2.4};
 const toMin = s => { const [h,m] = s.slice(0,5).split(":").map(Number); return h*60+m; };
@@ -250,7 +246,7 @@ function params(){
   const lead = Math.max(1, +$("lead").value || 2);
   const ku = ($("keepUntil").value || "").match(/^(\d{1,2}):(\d{2})/);
   return {keepUntil: ku ? (+ku[1])*60 + (+ku[2]) : 0, day: state.day, travel: Math.max(1, +$("travel").value || 7), lead, leadMin: 1, leadMax: Math.max(lead+2, 4),
-    gapMin: Math.max(1, +$("gapMin").value || 6), gapMax: Math.max(+$("gapMin").value || 6, +$("gapMax").value || 8), bend: Math.max(0, +$("bend").value || 0), incMarked: $("incMarked").checked};
+    gapMin: Math.max(1, +$("gapMin").value || 6), gapMax: Math.max(+$("gapMin").value || 6, +$("gapMax").value || 8), bend: Math.max(0, +$("bend").value || 0), incMarked: false};
 }
 function render(){
   const p = params();
@@ -305,7 +301,7 @@ function render(){
     evs.map(e => `<tr><td><span class="badge b${e.line}">${e.line}</span>${e.marked?' <small class="sub">-1</small>':''}</td><td class="mono">${e.raw}</td><td class="mono">${fmt(e.pass)} <small class="sub">(${e.line==='15R'?'0':DIST[e.line].toString().replace('.',',')} km)</small></td>${cell(ORIG,e)}${cell(NEW,e)}</tr>`).join("") + "</tbody>";
 }
 document.querySelectorAll("#daySeg button").forEach(b => b.addEventListener("click", () => { state.day = b.dataset.day; render(); }));
-["keepUntil","travel","lead","gapMin","gapMax","bend","incMarked"].forEach(id => $(id).addEventListener("input", render));
+["keepUntil","travel","lead","gapMin","gapMax","bend"].forEach(id => $(id).addEventListener("input", render));
 $("copyBtn").addEventListener("click", () => {
   const box = $("copyBox");
   navigator.clipboard.writeText(box.value).then(() => { $("copyBtn").textContent = "Kopyalandı"; setTimeout(()=>$("copyBtn").textContent="Saatleri kopyala",1500); })
