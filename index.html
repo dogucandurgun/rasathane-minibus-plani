@@ -72,6 +72,16 @@ table.list{border-collapse:collapse;width:100%;font-size:.88rem;font-variant-num
 .btn{font:inherit;font-weight:600;padding:7px 12px;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:4px;cursor:pointer}
 .btn:hover{background:var(--accent-soft)}
 .notes{color:var(--muted);font-size:.86rem;max-width:80ch;margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.tabs{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden;width:max-content;max-width:100%}
+.tabs button{font:inherit;font-weight:600;padding:7px 14px;border:0;background:var(--bg);color:var(--ink);cursor:pointer}
+.tabs button[aria-pressed=true]{background:var(--accent);color:#fff}
+.cell-in{font-family:var(--mono);font-weight:700;font-size:.98rem;width:4.6em;border:0;border-bottom:1px dashed var(--muted);background:transparent;color:var(--ink);padding:0}
+.cell-in:focus{outline:2px solid var(--accent);outline-offset:1px}
+.gapbad{color:var(--accent);font-weight:700}
+.edit-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.edit-tools input[type=time]{width:auto}
+textarea#pasteBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:.82rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;min-height:120px}
+details summary{cursor:pointer;font-weight:600}
 textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-size:.8rem;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;min-height:80px}
 </style>
 </head>
@@ -127,8 +137,24 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
 
   <section class="panel" aria-label="Yeni çıkış saatleri">
     <div class="head-row">
-      <h2>Yeni durak çıkışları</h2>
+      <h2 id="boardTitle">Bizim liste</h2>
+      <div class="tabs" id="modeTabs">
+        <button type="button" data-mode="ours" aria-pressed="true">Bizim liste</button>
+        <button type="button" data-mode="plan" aria-pressed="false">Önerilen plan</button>
+      </div>
       <button class="btn" type="button" id="copyBtn">Saatleri kopyala</button>
+    </div>
+    <div id="editTools" class="edit-tools">
+      <p class="sub" style="flex-basis:100%">Saatin üstüne tıklayıp değiştirin. Silmek için kutuyu boşaltın. Değişiklikler bu cihazda saklanır.</p>
+      <div class="field"><label for="addTime">Sefer ekle</label><input id="addTime" type="time" value="12:00"></div>
+      <button class="btn" type="button" id="addBtn">Ekle</button>
+      <button class="btn" type="button" id="resetBtn">İlk listeye dön</button>
+      <details style="flex-basis:100%">
+        <summary>Listeyi toplu yapıştır</summary>
+        <p class="sub">Excel'den ya da mesajdan kopyaladığınız saatleri buraya yapıştırın. Sıra ve düzen önemli değil, içindeki bütün SS:DD saatleri alınır.</p>
+        <textarea id="pasteBox" aria-label="Yapıştırılacak saatler"></textarea>
+        <button class="btn" type="button" id="pasteBtn">Bu listeyi kullan</button>
+      </details>
     </div>
     <div class="legend">
       <span><span class="badge b15U">15U</span> bu minibüs o otobüsün önünde gider</span>
@@ -140,7 +166,7 @@ textarea#copyBox{width:100%;box-sizing:border-box;font-family:var(--mono);font-s
   </section>
 
   <section class="panel" aria-label="Otobüs otobüs karşılaştırma">
-    <h2>Otobüs otobüs karşılaştırma</h2>
+    <h2>Hangi otobüslerin önündeyiz</h2>
     <p class="sub">“Önde” = minibüs, otobüsün ana yola girdiği noktadan 1 – <span id="leadMaxTxt2">5</span> dk önce geçiyor.</p>
     <div class="scroll"><table class="list" id="list"></table></div>
   </section>
@@ -248,47 +274,82 @@ function params(){
   return {keepUntil: ku ? (+ku[1])*60 + (+ku[2]) : 0, day: state.day, travel: Math.max(1, +$("travel").value || 7), lead, leadMin: 1, leadMax: Math.max(lead+2, 4),
     gapMin: Math.max(1, +$("gapMin").value || 6), gapMax: Math.max(+$("gapMin").value || 6, +$("gapMax").value || 8), bend: Math.max(0, +$("bend").value || 0), incMarked: false};
 }
+const OURS_DEFAULT = `05:35 07:32 09:08 10:38 12:15 13:55 15:35 17:09 18:49
+05:55 07:39 09:14 10:44 12:23 14:03 15:41 17:17 18:57
+06:07 07:45 09:21 10:50 12:31 14:11 15:47 17:25 19:05
+06:16 07:51 09:27 10:57 12:39 14:19 15:53 17:32 19:13
+06:24 07:57 09:33 11:04 12:45 14:27 15:59 17:38 19:19
+06:32 08:03 09:39 11:12 12:53 14:33 16:07 17:44 19:25
+06:40 08:09 09:45 11:20 13:01 14:39 16:15 17:52 19:33
+06:46 08:15 09:52 11:26 13:08 14:47 16:22 18:00 19:41
+06:52 08:22 09:59 11:32 13:14 14:55 16:28 18:08 19:47
+06:58 08:28 10:06 11:38 13:20 15:02 16:34 18:15 19:53
+07:04 08:34 10:13 11:44 13:26 15:08 16:42 18:23
+07:10 08:42 10:20 11:50 13:34 15:14 16:50 18:29
+07:17 08:50 10:26 11:56 13:42 15:20 16:57 18:35
+07:24 08:56 10:32 12:03 13:49 15:28 17:03 18:41
+09:02 12:09`;
+const parseTimes = txt => [...new Set((txt.match(/\b\d{1,2}[:.]\d{2}\b/g) || []).map(x => toMin(x.replace(".",":").padStart(5,"0"))))].filter(m => m >= 0 && m < 24*60).sort((a,b)=>a-b);
+const STORE_KEY = "rasathane-bizim-liste";
+function loadOurs(){ try { const v = localStorage.getItem(STORE_KEY); if (v) { const a = JSON.parse(v); if (Array.isArray(a) && a.length) return a; } } catch(e) {} return parseTimes(OURS_DEFAULT); }
+function saveOurs(){ try { localStorage.setItem(STORE_KEY, JSON.stringify(state.ours)); } catch(e) {} }
+state.ours = loadOurs();
+state.mode = "ours";
+
 function render(){
   const p = params();
   $("leadMaxTxt").textContent = p.leadMax; $("leadMaxTxt2").textContent = p.leadMax;
   document.querySelectorAll("#daySeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.day === state.day));
+  document.querySelectorAll("#modeTabs button").forEach(b => b.setAttribute("aria-pressed", b.dataset.mode === state.mode));
+  const ours = state.mode === "ours";
+  $("editTools").hidden = !ours;
+  $("boardTitle").textContent = ours ? "Bizim liste" : "Önerilen plan";
   const res = plan(p);
-  const NEW = res.deps.map(d=>d.t);
-  const sOld = score(ORIG, res.events, p), sNew = score(NEW, res.events, p);
+  const PLAN = res.deps.map(d=>d.t), OURS = state.ours;
+  const SHOW = ours ? OURS : PLAN;
+  const sOld = score(ORIG, res.events, p), sShow = score(SHOW, res.events, p), sPlan = score(PLAN, res.events, p), sOurs = score(OURS, res.events, p);
   const pct = s => s.total ? Math.round(100*s.covered/s.total) : 0;
-  const diff = sNew.covered - sOld.covered;
+  const diff = sShow.covered - sOld.covered;
+  const name = ours ? "Bizim liste" : "Önerilen plan";
   $("stats").innerHTML = `
-    <div class="stat"><span class="lbl">Önüne geçilen otobüs</span>
-      <span class="big">${sNew.covered}/${sNew.total}<span class="was">eski plan: ${sOld.covered}</span></span>
-      <span class="${diff>=0?'up':'down'}">${diff>=0?'+':''}${diff} otobüs · %${pct(sNew)} (eski %${pct(sOld)})</span></div>
+    <div class="stat"><span class="lbl">${name}: önüne geçilen otobüs</span>
+      <span class="big">${sShow.covered}/${sShow.total}<span class="was">eski tablo: ${sOld.covered}</span></span>
+      <span class="${diff>=0?'up':'down'}">${diff>=0?'+':''}${diff} otobüs · %${pct(sShow)} (eski %${pct(sOld)})</span></div>
+    <div class="stat"><span class="lbl">${ours ? "Önerilen plan" : "Bizim liste"} ile karşılaştırma</span>
+      <span class="big">${(ours?sPlan:sOurs).covered}/${sShow.total}</span>
+      <span class="sub">${ours ? "önerilen plan bu kadar otobüsün önüne geçiyor" : "bizim liste bu kadar otobüsün önüne geçiyor"}</span></div>
     <div class="stat"><span class="lbl">Otobüsün hemen arkasında kalan sefer</span>
-      <span class="big">${sNew.behind.size}<span class="was">eski plan: ${sOld.behind.size}</span></span>
+      <span class="big">${sShow.behind.size}<span class="was">eski tablo: ${sOld.behind.size}</span></span>
       <span class="sub">otobüsten 0–3 dk sonra aynı noktadan geçen minibüs</span></div>
     <div class="stat"><span class="lbl">Sefer sayısı</span>
-      <span class="big">${NEW.length}<span class="was">eski: ${ORIG.length}</span></span>
-      <span class="sub">${fmt(NEW[0])} – ${fmt(NEW[NEW.length-1])} arası</span></div>`;
+      <span class="big">${SHOW.length}<span class="was">eski: ${ORIG.length}</span></span>
+      <span class="sub">${SHOW.length ? fmt(SHOW[0]) + " – " + fmt(SHOW[SHOW.length-1]) + " arası" : ""}</span></div>`;
 
   // Board: 14 rows, column-major like the stop's printed table.
-  const rows = 14, cols = Math.ceil(NEW.length/rows);
+  const rows = 14, cols = Math.max(1, Math.ceil(SHOW.length/rows));
   const coverMap = new Map();
-  for (const e of res.events) { const b = leadFor(NEW, e); if (b && b.l >= p.leadMin-0.5 && b.l <= p.leadMax+0.5) { if(!coverMap.has(b.d)) coverMap.set(b.d, []); coverMap.get(b.d).push(e); } }
+  for (const e of res.events) { const b = leadFor(SHOW, e); if (b && b.l >= p.leadMin-0.5 && b.l <= p.leadMax+0.5) { if(!coverMap.has(b.d)) coverMap.set(b.d, []); coverMap.get(b.d).push(e); } }
   let html = "<thead><tr><th></th>" + Array.from({length:cols},(_,c)=>`<th>${c+1}. sütun</th>`).join("") + "</tr></thead><tbody>";
   for (let r = 0; r < rows; r++) {
     html += `<tr><td class="row-n empty">${r+1}</td>`;
     for (let c = 0; c < cols; c++) {
       const i = c*rows + r;
-      if (i >= NEW.length) { html += '<td class="empty"></td>'; continue; }
-      const t = NEW[i], delta = i ? t - NEW[i-1] : 0, cov = coverMap.get(t) || [];
-      const cls = cov.length ? "anchor" : (sNew.behind.has(t) ? "behind" : "");
+      if (i >= SHOW.length) { html += '<td class="empty"></td>'; continue; }
+      const t = SHOW[i], delta = i ? t - SHOW[i-1] : 0, cov = coverMap.get(t) || [];
+      const cls = cov.length ? "anchor" : (sShow.behind.has(t) ? "behind" : "");
       const badges = [...new Set(cov.map(e=>e.line))].map(l=>`<span class="badge b${l}">${l}</span>`).join("");
-      html += `<td class="${cls}" title="${i ? 'Önceki seferden ' + delta + ' dk sonra' : 'İlk sefer'}"><span class="t">${fmt(t)}</span><span class="d">${badges}${i ? delta + ' dk' : 'ilk'}</span></td>`;
+      const bad = i && t > p.keepUntil && (delta < p.gapMin || delta > p.gapMax);
+      const gapTxt = i ? `<span class="${bad?'gapbad':''}">${delta} dk</span>` : 'ilk';
+      const timeEl = ours ? `<input class="cell-in" data-i="${i}" value="${fmt(t)}" aria-label="${i+1}. sefer saati" inputmode="numeric">` : `<span class="t">${fmt(t)}</span>`;
+      const tip = cov.length ? cov.map(e=>e.line+' '+e.raw+' önünde').join(', ') : (i ? 'Önceki seferden ' + delta + ' dk sonra' : 'İlk sefer');
+      html += `<td class="${cls}" title="${tip}">${timeEl}<span class="d">${badges}${gapTxt}</span></td>`;
     }
     html += "</tr>";
   }
   $("board").innerHTML = html + "</tbody>";
-  $("copyBox").value = Array.from({length:rows},(_,r)=>Array.from({length:cols},(_,c)=>NEW[c*rows+r]!==undefined?fmt(NEW[c*rows+r]):"").join("\t")).join("\n");
+  $("copyBox").value = Array.from({length:rows},(_,r)=>Array.from({length:cols},(_,c)=>SHOW[c*rows+r]!==undefined?fmt(SHOW[c*rows+r]):"").join("\t")).join("\n");
 
-  // Bus list
+  // Bus list: our list vs suggested plan
   const evs = res.events.slice().sort((a,b)=>a.pass-b.pass);
   const cell = (S, e) => {
     const b = leadFor(S, e);
@@ -297,11 +358,25 @@ function render(){
     const pill = ok ? `<span class="pill ok">${Math.round(b.l)} dk önde</span>` : `<span class="pill ${b.l<p.leadMin?'mid':'no'}">${b.l<p.leadMin? 'çok yakın' : Math.round(b.l)+' dk önde'}</span>`;
     return `<td class="mono">${fmt(b.d)}</td><td>${pill}</td>`;
   };
-  $("list").innerHTML = `<thead><tr><th>Hat</th><th>Otobüs kalkış</th><th>Ana yola giriş</th><th>Eski: minibüs</th><th>Eski durum</th><th>Yeni: minibüs</th><th>Yeni durum</th></tr></thead><tbody>` +
-    evs.map(e => `<tr><td><span class="badge b${e.line}">${e.line}</span>${e.marked?' <small class="sub">-1</small>':''}</td><td class="mono">${e.raw}</td><td class="mono">${fmt(e.pass)} <small class="sub">(${e.line==='15R'?'0':DIST[e.line].toString().replace('.',',')} km)</small></td>${cell(ORIG,e)}${cell(NEW,e)}</tr>`).join("") + "</tbody>";
+  $("list").innerHTML = `<thead><tr><th>Hat</th><th>Otobüs kalkış</th><th>Ana yola giriş</th><th>Bizim liste: minibüs</th><th>Durum</th><th>Önerilen: minibüs</th><th>Durum</th></tr></thead><tbody>` +
+    evs.map(e => `<tr><td><span class="badge b${e.line}">${e.line}</span></td><td class="mono">${e.raw}</td><td class="mono">${fmt(e.pass)} <small class="sub">(${e.line==='15R'?'0':DIST[e.line].toString().replace('.',',')} km)</small></td>${cell(OURS,e)}${cell(PLAN,e)}</tr>`).join("") + "</tbody>";
 }
+function setOurs(list){ state.ours = [...new Set(list)].sort((a,b)=>a-b); saveOurs(); render(); }
 document.querySelectorAll("#daySeg button").forEach(b => b.addEventListener("click", () => { state.day = b.dataset.day; render(); }));
+document.querySelectorAll("#modeTabs button").forEach(b => b.addEventListener("click", () => { state.mode = b.dataset.mode; render(); }));
 ["keepUntil","travel","lead","gapMin","gapMax","bend"].forEach(id => $(id).addEventListener("input", render));
+$("board").addEventListener("change", ev => {
+  const el = ev.target; if (!el.classList.contains("cell-in")) return;
+  const i = +el.dataset.i, v = el.value.trim(), list = state.ours.slice();
+  if (!v) { list.splice(i,1); setOurs(list); return; }
+  const m = v.match(/^(\d{1,2})[:.]?(\d{2})$/);
+  if (!m || +m[1] > 23 || +m[2] > 59) { el.value = fmt(list[i]); return; }
+  list[i] = (+m[1])*60 + (+m[2]); setOurs(list);
+});
+$("board").addEventListener("keydown", ev => { if (ev.key === "Enter" && ev.target.classList.contains("cell-in")) ev.target.blur(); });
+$("addBtn").addEventListener("click", () => { const v = $("addTime").value; if (v) setOurs(state.ours.concat(toMin(v))); });
+$("resetBtn").addEventListener("click", () => setOurs(parseTimes(OURS_DEFAULT)));
+$("pasteBtn").addEventListener("click", () => { const l = parseTimes($("pasteBox").value); if (l.length) { setOurs(l); $("pasteBox").value = ""; } });
 $("copyBtn").addEventListener("click", () => {
   const box = $("copyBox");
   navigator.clipboard.writeText(box.value).then(() => { $("copyBtn").textContent = "Kopyalandı"; setTimeout(()=>$("copyBtn").textContent="Saatleri kopyala",1500); })
